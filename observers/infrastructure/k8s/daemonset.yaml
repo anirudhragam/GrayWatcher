@@ -17,7 +17,7 @@ spec:
       serviceAccountName: infra-observer-sa
       containers:
       - name: infra-observer
-        image: vera5660/infra-observer:v1.1
+        image: vera5660/infra-observer:v1.2
         imagePullPolicy: Always
         env:
           - name: NODE_NAME
