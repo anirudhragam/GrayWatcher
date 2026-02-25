@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verdict-server
+  namespace: graywatcher
+  labels:
+    app: verdict-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verdict-server
+  template:
+    metadata:
+      labels:
+        app: verdict-server
+    spec:
+      containers:
+      - name: verdict-server
+        image: vera5660/verdict-server:v1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi

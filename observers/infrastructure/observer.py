@@ -3,7 +3,6 @@
 Infrastructure Observer for GrayWatcher
 Collects pod health metrics from Kubernetes infrastructure perspective
 """
-from cmath import phase
 import os
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
@@ -21,7 +20,10 @@ class InfrastructureObserver:
     def __init__(self, node_name):
         self.node_name = node_name
         self.observer_id = f"infra-{node_name}-observer"
-        self.grace_period_seconds = 120  
+        self.grace_period_seconds = 120
+
+        verdict_server_url = os.getenv('VERDICT_SERVER_URL', 'http://localhost:80')
+        self.observations_url = f"{verdict_server_url}/observations"
 
         # Load kubernetes config
         try:
@@ -56,7 +58,8 @@ class InfrastructureObserver:
             logger.info(f"Found {len(pods.items)} pods on node {self.node_name}")
 
             for pod in pods.items:
-                # Skip system pods
+                # Skip system pods. 
+                #TODO: Add graywatcher namespace to this list
                 if pod.metadata.namespace in ['kube-node-lease', 'kube-public', 'kube-system']:
                     continue
 
@@ -155,7 +158,7 @@ class InfrastructureObserver:
         """Function to map infrastructure metrics to overall health status
            Logic:
                 - UNHEALTHY: Pod failed, unknown state, or critical infrastructure failure
-                - DEGRADED: Pod pending, containers not ready, high restarts, conditions failing
+                - DEGRADED: Pod pending, containers not ready, high restarts, conditions failing (after grace period)
                 - HEALTHY: Pod running, all containers ready, low restarts, conditions passing"""
         
         # Check if within grace period
@@ -200,17 +203,23 @@ class InfrastructureObserver:
         return 'degraded'
             
 
+    def post_observation(self, obs):
+        """POST a single observation to the verdict server"""
+        try:
+            response = requests.post(self.observations_url, json=obs, timeout=5)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to POST observation for {obs.get('target_id')}: {e}")
+
     def run(self, interval=15):
         """Main loop to collect and send observations at regular intervals"""
         while True:
             try:
                 observations = self.collect_observations()
-                logger.info(f"Collected {len(observations)} observations")
+                logger.info(f"Collected {len(observations)} observations, posting to {self.observations_url}")
 
-                # Here we would send the observations to the central system
-                # For now, we'll just log them
                 for obs in observations:
-                    logger.info(f"Observation: {obs}")
+                    self.post_observation(obs)
             except Exception as e:
                 logger.error(f"Error in observer loop: {e}")
 

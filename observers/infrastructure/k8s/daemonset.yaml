@@ -26,7 +26,7 @@ spec:
                 fieldPath: spec.nodeName
 
           - name: VERDICT_SERVER_URL
-            value: <verdict-server-url> 
+            value: "http://verdict-server.graywatcher.svc.cluster.local"
         resources:
           limits:
             memory: 256Mi
