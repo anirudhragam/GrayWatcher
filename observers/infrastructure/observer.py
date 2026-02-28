@@ -100,6 +100,7 @@ class InfrastructureObserver:
         'target_id': target_id,
         'status': status,
         'metrics': metrics,
+        'confidence': 1.0, # Hardcoded for now
         'timestamp': int(time.time() * 1000),
         'metadata': {
             'node': self.node_name,
@@ -201,7 +202,29 @@ class InfrastructureObserver:
         
         # Default to degraded
         return 'degraded'
-            
+    
+    def _calculate_confidence(self, pod, conditions):
+        """Calculate confidence score for observation"""
+        within_grace_period = self._is_within_grace_period(pod)
+        
+        if within_grace_period:
+            return 0.3  # Low confidence during startup
+        
+        confidence = 0.6  # Base
+        
+        if pod.status.container_statuses:
+            confidence += 0.15
+        
+        if conditions:
+            confidence += 0.15
+        
+        if pod.status.start_time:
+            age_seconds = (time.time() - pod.status.start_time.timestamp())
+            if age_seconds > 300:  # 5+ minutes old
+                confidence += 0.1
+        
+        return min(confidence, 1.0)
+                
 
     def post_observation(self, obs):
         """POST a single observation to the verdict server"""

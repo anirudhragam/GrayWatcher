@@ -35,7 +35,7 @@ func (s *ObservationStore) GetRecent() []InfraObservation {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	cutoff := time.Now().Add(-s.windowDuration).Unix()
+	cutoff := time.Now().Add(-s.windowDuration).Unix() * 1000
 	recent := []InfraObservation{}
 
 	for _, obs := range s.infraObservations {
@@ -50,7 +50,7 @@ func (s *ObservationStore) GetByTarget(targetID string) []InfraObservation {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	cutoff := time.Now().Add(-s.windowDuration).Unix()
+	cutoff := time.Now().Add(-s.windowDuration).Unix() * 1000
 	recent := []InfraObservation{}
 
 	for _, obs := range s.infraObservations {
@@ -75,7 +75,7 @@ func (s *ObservationStore) cleanup() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cutoff := time.Now().Add(-s.windowDuration).Unix()
+	cutoff := time.Now().Add(-s.windowDuration).Unix() * 1000
 	filtered := []InfraObservation{}
 
 	for _, obs := range s.infraObservations {

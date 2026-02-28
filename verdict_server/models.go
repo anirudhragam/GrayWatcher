@@ -14,6 +14,7 @@ type InfraObservation struct {
 	Metrics      InfraMetrics  `json:"metrics"`
 	Timestamp    int64         `json:"timestamp"`
 	Metadata     InfraMetadata `json:"metadata"`
+	Confidence   float64       `json:"confidence"`
 }
 
 type InfraMetadata struct {
