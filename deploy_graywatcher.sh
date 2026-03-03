@@ -20,4 +20,8 @@ echo "==> Deploying infra-observer..."
 kubectl apply -f "$SCRIPT_DIR/observers/infrastructure/k8s/daemonset.yaml"
 kubectl rollout status daemonset/infra-observer -n graywatcher
 
+echo "==> Deploying mesh-observer..."
+kubectl apply -f "$SCRIPT_DIR/observers/service-mesh/k8s/deployment.yaml"
+kubectl rollout status deployment/mesh-observer -n graywatcher
+
 echo "==> Done."

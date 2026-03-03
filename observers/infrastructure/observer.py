@@ -24,6 +24,7 @@ class InfrastructureObserver:
 
         verdict_server_url = os.getenv('VERDICT_SERVER_URL', 'http://localhost:80')
         self.observations_url = f"{verdict_server_url}/observations"
+        self.interval = int(os.environ.get('INTERVAL', '30'))
 
         # Load kubernetes config
         try:
@@ -60,7 +61,7 @@ class InfrastructureObserver:
             for pod in pods.items:
                 # Skip system pods. 
                 #TODO: Add graywatcher namespace to this list
-                if pod.metadata.namespace in ['kube-node-lease', 'kube-public', 'kube-system']:
+                if pod.metadata.namespace in ['kube-node-lease', 'kube-public', 'kube-system', 'linkerd', 'linkerd-viz']:
                     continue
 
                 obs = self.create_observation(pod)
@@ -234,7 +235,7 @@ class InfrastructureObserver:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to POST observation for {obs.get('target_id')}: {e}")
 
-    def run(self, interval=15):
+    def run(self):
         """Main loop to collect and send observations at regular intervals"""
         while True:
             try:
@@ -246,7 +247,7 @@ class InfrastructureObserver:
             except Exception as e:
                 logger.error(f"Error in observer loop: {e}")
 
-            time.sleep(interval)
+            time.sleep(self.interval)
 
 def main():
     node_name = os.getenv('NODE_NAME')
@@ -256,7 +257,7 @@ def main():
 
     # Create and run observer
     observer = InfrastructureObserver(node_name)
-    observer.run(interval=15)
+    observer.run()
 
 
 if __name__ == "__main__":

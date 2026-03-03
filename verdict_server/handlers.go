@@ -25,7 +25,7 @@ func (s *Server) HandleObservations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePostObservation(w http.ResponseWriter, r *http.Request) {
-	var obs InfraObservation
+	var obs Observation
 
 	err := json.NewDecoder(r.Body).Decode(&obs)
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *Server) handlePostObservation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetObservations(w http.ResponseWriter, r *http.Request) {
-	var observations []InfraObservation
+	var observations []Observation
 
 	if targetID := r.URL.Query().Get("target_id"); targetID != "" {
 		observations = s.store.GetByTarget(targetID)

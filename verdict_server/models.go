@@ -6,15 +6,17 @@ const (
 	VerdictHardFailure = "hard_failure"
 )
 
-type InfraObservation struct {
-	ObserverID   string        `json:"observer_id"`
-	ObserverType string        `json:"observer_type"`
-	TargetID     string        `json:"target_id"`
-	Status       string        `json:"status"`
-	Metrics      InfraMetrics  `json:"metrics"`
-	Timestamp    int64         `json:"timestamp"`
-	Metadata     InfraMetadata `json:"metadata"`
-	Confidence   float64       `json:"confidence"`
+// Infrastructure Observation structs
+
+type Observation struct {
+	ObserverID   string                 `json:"observer_id"`
+	ObserverType string                 `json:"observer_type"`
+	TargetID     string                 `json:"target_id"`
+	Status       string                 `json:"status"`
+	Confidence   float64                `json:"confidence"`
+	Metrics      map[string]interface{} `json:"metrics"`
+	Timestamp    int64                  `json:"timestamp"`
+	Metadata     map[string]interface{} `json:"metadata"`
 }
 
 type InfraMetadata struct {
@@ -30,6 +32,8 @@ type InfraMetrics struct {
 	RestartCount    int             `json:"restart_count"`
 	Conditions      map[string]bool `json:"conditions"`
 }
+
+// Verdict structs
 
 type Indicator struct {
 	Component string `json:"component"`

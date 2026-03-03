@@ -6,15 +6,15 @@ import (
 )
 
 type ObservationStore struct {
-	mu                sync.RWMutex
-	infraObservations []InfraObservation
-	windowDuration    time.Duration
+	mu             sync.RWMutex
+	observations   []Observation
+	windowDuration time.Duration
 }
 
 func NewObservationStore(windowDuration time.Duration) *ObservationStore {
 	store := &ObservationStore{
-		infraObservations: []InfraObservation{},
-		windowDuration:    windowDuration,
+		observations:   []Observation{},
+		windowDuration: windowDuration,
 	}
 
 	// Start cleanup thread in background
@@ -23,22 +23,22 @@ func NewObservationStore(windowDuration time.Duration) *ObservationStore {
 	return store
 }
 
-func (s *ObservationStore) Add(obs InfraObservation) {
+func (s *ObservationStore) Add(obs Observation) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.infraObservations = append(s.infraObservations, obs)
+	s.observations = append(s.observations, obs)
 	// s.cleanup()
 }
 
-func (s *ObservationStore) GetRecent() []InfraObservation {
+func (s *ObservationStore) GetRecent() []Observation {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	cutoff := time.Now().Add(-s.windowDuration).Unix() * 1000
-	recent := []InfraObservation{}
+	recent := []Observation{}
 
-	for _, obs := range s.infraObservations {
+	for _, obs := range s.observations {
 		if obs.Timestamp >= cutoff {
 			recent = append(recent, obs)
 		}
@@ -46,14 +46,14 @@ func (s *ObservationStore) GetRecent() []InfraObservation {
 	return recent
 }
 
-func (s *ObservationStore) GetByTarget(targetID string) []InfraObservation {
+func (s *ObservationStore) GetByTarget(targetID string) []Observation {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	cutoff := time.Now().Add(-s.windowDuration).Unix() * 1000
-	recent := []InfraObservation{}
+	recent := []Observation{}
 
-	for _, obs := range s.infraObservations {
+	for _, obs := range s.observations {
 		if obs.Timestamp >= cutoff {
 			if obs.TargetID == targetID {
 				recent = append(recent, obs)
@@ -68,7 +68,7 @@ func (s *ObservationStore) Count() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return len(s.infraObservations)
+	return len(s.observations)
 }
 
 func (s *ObservationStore) cleanup() {
@@ -76,15 +76,15 @@ func (s *ObservationStore) cleanup() {
 	defer s.mu.Unlock()
 
 	cutoff := time.Now().Add(-s.windowDuration).Unix() * 1000
-	filtered := []InfraObservation{}
+	filtered := []Observation{}
 
-	for _, obs := range s.infraObservations {
+	for _, obs := range s.observations {
 		if obs.Timestamp >= cutoff {
 			filtered = append(filtered, obs)
 		}
 	}
 
-	s.infraObservations = filtered
+	s.observations = filtered
 }
 
 func (s *ObservationStore) cleanupLoop() {

@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mesh-observer
+  namespace: graywatcher
+  labels:
+    app: mesh-observer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mesh-observer
+  template:
+    metadata:
+      labels:
+        app: mesh-observer
+    spec:
+      containers:
+      - name: mesh-observer
+        image: vera5660/mesh-observer:v1.0
+        imagePullPolicy: Always
+        env:
+        - name: PROMETHEUS_URL
+          value: "http://prometheus.linkerd-viz.svc.cluster.local:9090"
+        - name: VERDICT_SERVER_URL
+          value: "http://verdict-server.graywatcher.svc.cluster.local"
+        - name: INTERVAL
+          value: "30"  
+        resources:
+          requests:
+            cpu: 50m      
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
