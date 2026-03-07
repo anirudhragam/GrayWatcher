@@ -1,34 +1,38 @@
-# Service Account Definition
+# RBAC configuration for Infra Observer
+
+# ServiceAccount for Infra Observer
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  annotations:
-    kubernetes.io/enforce-mountable-secrets: "true"
   name: infra-observer-sa
   namespace: graywatcher
-
 ---
-# ClusterRole Definition
+# ClusterRole with permissions to read pods and pod metrics
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: infra-observer
+  name: infra-observer-role
 rules:
+# Read pods from Kubernetes API
 - apiGroups: [""]
-  resources: ["pods", "nodes"]
-  verbs: ["get", "list"]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
 
+# Read pod metrics from Metrics Server
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods"]
+  verbs: ["get", "list"]
 ---
-# ClusterRoleBinding Definition
+# ClusterRoleBinding to bind the ClusterRole to the ServiceAccount
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: infra-observer
+  name: infra-observer-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: infra-observer-role
 subjects:
 - kind: ServiceAccount
   name: infra-observer-sa
   namespace: graywatcher
-roleRef:
-  kind: ClusterRole
-  name: infra-observer
-  apiGroup: rbac.authorization.k8s.io

@@ -17,8 +17,8 @@ kubectl apply -f "$SCRIPT_DIR/verdict_server/k8s/deployment.yaml"
 kubectl rollout status deployment/verdict-server -n graywatcher
 
 echo "==> Deploying infra-observer..."
-kubectl apply -f "$SCRIPT_DIR/observers/infrastructure/k8s/daemonset.yaml"
-kubectl rollout status daemonset/infra-observer -n graywatcher
+kubectl apply -f "$SCRIPT_DIR/observers/infrastructure/k8s/deployment.yaml"
+kubectl rollout status deployment/infra-observer -n graywatcher
 
 echo "==> Deploying mesh-observer..."
 kubectl apply -f "$SCRIPT_DIR/observers/service-mesh/k8s/deployment.yaml"

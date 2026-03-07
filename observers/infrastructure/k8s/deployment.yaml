@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment 
 metadata:
   name: infra-observer
   namespace: graywatcher
   labels:
     app: infra-observer
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: infra-observer
@@ -17,19 +18,19 @@ spec:
       serviceAccountName: infra-observer-sa
       containers:
       - name: infra-observer
-        image: vera5660/infra-observer:v1.2
+        image: vera5660/infra-observer:v1.3
         imagePullPolicy: Always
         env:
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
-
           - name: VERDICT_SERVER_URL
             value: "http://verdict-server.graywatcher.svc.cluster.local"
+          
+          - name: INTERVAL
+            value: "15"
+            
         resources:
           limits:
             memory: 256Mi
+            cpu: 500m
           requests:
             cpu: 100m
             memory: 128Mi
