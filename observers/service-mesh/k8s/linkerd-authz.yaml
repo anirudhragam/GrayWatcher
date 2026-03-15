@@ -1,0 +1,12 @@
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: prometheus-admin-mesh-observer
+  namespace: linkerd-viz
+spec:
+  server:
+    name: prometheus-admin
+  client:
+    meshTLS:
+      identities:
+        - "mesh-observer-sa.graywatcher.serviceaccount.identity.linkerd.cluster.local"
