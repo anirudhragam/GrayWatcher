@@ -95,3 +95,35 @@ func (s *ObservationStore) cleanupLoop() {
 		s.cleanup()
 	}
 }
+
+type VerdictStore struct {
+    mu      sync.RWMutex
+    verdicts map[string]Verdict   // one verdict per namespace, overwritten each cycle
+}
+
+func NewVerdictStore() *VerdictStore {
+	store := &VerdictStore{
+		verdicts:   map[string]Verdict{},
+	}
+
+	return store
+}
+
+func (vs *VerdictStore) Set(namespace string, v Verdict) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
+	vs.verdicts[namespace] = v
+}
+
+func (vs *VerdictStore) GetAll() []Verdict {
+	vs.mu.RLock()
+	defer vs.mu.RUnlock()
+
+	var allVerdicts []Verdict
+	for _, ns_verdicts := range vs.verdicts {
+		allVerdicts = append(allVerdicts, ns_verdicts)
+	}
+
+	return allVerdicts
+}
