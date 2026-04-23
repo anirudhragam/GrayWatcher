@@ -163,8 +163,10 @@ class InfrastructureObserver:
 
             for pod in pods.items:
                 # Skip system namespaces
-                if pod.metadata.namespace in ['kube-node-lease', 'kube-public', 'kube-system', 
-                                               'linkerd', 'linkerd-viz', 'graywatcher']:
+                if pod.metadata.namespace in ['kube-node-lease', 'kube-public', 'kube-system',
+                                               'linkerd', 'linkerd-viz', 'graywatcher',
+                                               'gmp-system', 'gmp-public', 'gke-managed-cim',
+                                               'chaos-mesh', 'cert-manager']:
                     continue
 
                 obs = self.create_observation(pod)

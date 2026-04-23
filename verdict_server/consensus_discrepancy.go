@@ -8,65 +8,63 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
+const (
+	sigmaThreshold = 2.0  // z-score cutoff for "meaningful anomaly"
+	minGrayness    = 0.10 // minimum grayness to declare gray_failure
+)
+
 type ConsensusDiscrepancyAnalyzer struct{}
 
-func (a *ConsensusDiscrepancyAnalyzer) Analyze(ns string, infraObs, meshObs []Observation) Verdict {
+// worstObsStatus returns the most severe status seen across a set of observations.
+func worstObsStatus(obs []Observation) string {
+	worst := "healthy"
+	for _, o := range obs {
+		if o.Status == "unhealthy" {
+			return "unhealthy"
+		}
+		if o.Status == "degraded" {
+			worst = "degraded"
+		}
+	}
+	return worst
+}
+
+func (a *ConsensusDiscrepancyAnalyzer) Analyze(deploymentKey string, infraObs, meshObs []Observation) Verdict {
 	if len(infraObs) == 0 || len(meshObs) == 0 {
 		return Verdict{
-			TargetID:    ns,
+			TargetID:    deploymentKey,
 			Timestamp:   time.Now().UnixMilli(),
 			VerdictType: VerdictHealthy,
+			Confidence:  1.0,
 			Reason:      "Insufficient data: either infra observations or mesh observations are missing.",
 		}
 	}
 
-	// assuming observations arrive in order
-	latestInfraObs := infraObs[len(infraObs)-1]
-	latestMeshObs := meshObs[len(meshObs)-1]
-
-	if latestInfraObs.Status == "healthy" && latestMeshObs.Status == "healthy" {
-		return Verdict{
-			VerdictType: VerdictHealthy,
-			Confidence:  1.0,
-			Reason:      "All systems normal: infrastructure healthy, service mesh healthy.",
-		}
-	}
-
-	if latestInfraObs.Status == "unhealthy" && latestMeshObs.Status == "unhealthy" {
-		return Verdict{
-			VerdictType: VerdictHardFailure,
-			Confidence:  1.0,
-			Reason:      "Full outage: both infrastructure and service mesh reporting unhealthy. Pod failures are directly causing service unavailability.",
-		}
-	}
-
-	// any other combination of statuses -> check grayness
+	// ── Step 1: Always compute z-score anomaly degrees first ─────────────
 
 	infraMetrics := []string{"cpu_utilization_percent", "memory_utilization_percent"}
 	meshMetrics := []string{"p99_latency_ms", "error_rate"}
 
-	infra_window_metrics := make(map[string][]float64, len(infraObs))
+	infra_window_metrics := make(map[string][]float64)
 	for _, metric := range infraMetrics {
-		var curr []float64
-		for _, observation := range infraObs {
-			val, ok := getFloat(observation.Metrics, metric)
-			if ok {
-				curr = append(curr, val)
+		var vals []float64
+		for _, obs := range infraObs {
+			if v, ok := getFloat(obs.Metrics, metric); ok {
+				vals = append(vals, v)
 			}
 		}
-		infra_window_metrics[metric] = curr
+		infra_window_metrics[metric] = vals
 	}
 
-	mesh_window_metrics := make(map[string][]float64, len(meshObs))
+	mesh_window_metrics := make(map[string][]float64)
 	for _, metric := range meshMetrics {
-		var curr []float64
-		for _, observation := range meshObs {
-			val, ok := getFloat(observation.Metrics, metric)
-			if ok {
-				curr = append(curr, val)
+		var vals []float64
+		for _, obs := range meshObs {
+			if v, ok := getFloat(obs.Metrics, metric); ok {
+				vals = append(vals, v)
 			}
 		}
-		mesh_window_metrics[metric] = curr
+		mesh_window_metrics[metric] = vals
 	}
 
 	A_cpu := anomalyDegree(infra_window_metrics["cpu_utilization_percent"])
@@ -77,39 +75,96 @@ func (a *ConsensusDiscrepancyAnalyzer) Analyze(ns string, infraObs, meshObs []Ob
 	infraAnomaly := mean(A_cpu, A_mem)
 	meshAnomaly := mean(A_p99, A_error)
 
+	latestInfraObs := infraObs[len(infraObs)-1]
+	latestMeshObs := meshObs[len(meshObs)-1]
+
 	latestCPU, _ := getFloat(latestInfraObs.Metrics, "cpu_utilization_percent")
 	latestMem, _ := getFloat(latestInfraObs.Metrics, "memory_utilization_percent")
 	latestP99, _ := getFloat(latestMeshObs.Metrics, "p99_latency_ms")
 	latestErrorRate, _ := getFloat(latestMeshObs.Metrics, "error_rate")
 
-	// correlation degradation guard
-	// checks both anomalies are statistical outliers (>2*mean)
-	const correlatedThreshold = 2.0
-	finding, suggestion := diagnose(infraAnomaly, meshAnomaly, latestInfraObs.Status, latestMeshObs.Status, latestCPU, latestMem, latestP99, latestErrorRate)
+	worstInfraStatus := worstObsStatus(infraObs)
+	worstMeshStatus := worstObsStatus(meshObs)
 
-	if infraAnomaly > correlatedThreshold && meshAnomaly > correlatedThreshold {
+	finding, suggestion := diagnose(infraAnomaly, meshAnomaly, worstInfraStatus, worstMeshStatus, latestCPU, latestMem, latestP99, latestErrorRate)
+
+	// ── Step 2: Statistical path — meaningful z-score deviation detected ──
+	//
+	// If either source shows >= 2-sigma deviation, the statistical signal
+	// is strong enough to classify without relying on fixed status thresholds.
+
+	if infraAnomaly >= sigmaThreshold || meshAnomaly >= sigmaThreshold {
+
+		// Both sources are statistically anomalous → correlated hard failure
+		if infraAnomaly >= sigmaThreshold && meshAnomaly >= sigmaThreshold {
+			return Verdict{
+				TargetID:    deploymentKey,
+				Timestamp:   time.Now().UnixMilli(),
+				VerdictType: VerdictHardFailure,
+				Confidence:  1.0,
+				Reason:      fmt.Sprintf("Infrastructure exhaustion causing service degradation. %s Suggestion: %s (infraAnomaly=%.2f meshAnomaly=%.2f)", finding, suggestion, infraAnomaly, meshAnomaly),
+			}
+		}
+
+		// Only one source is anomalous → compute grayness
+		residual := meshAnomaly - infraAnomaly
+		grayness := math.Tanh(math.Max(residual, 0))
+
+		if grayness < minGrayness {
+			return Verdict{
+				TargetID:    deploymentKey,
+				Timestamp:   time.Now().UnixMilli(),
+				VerdictType: VerdictHealthy,
+				Confidence:  1.0,
+				Reason:      "All systems normal: discrepancy within noise threshold.",
+			}
+		}
+
 		return Verdict{
-			TargetID:    ns,
+			TargetID:    deploymentKey,
 			Timestamp:   time.Now().UnixMilli(),
-			VerdictType: VerdictHardFailure,
-			Confidence:  1.0,
-			Reason:      fmt.Sprintf("Infrastructure exhaustion causing service degradation. %s Suggestion: %s (infraAnomaly=%.2f meshAnomaly=%.2f)", finding, suggestion, infraAnomaly, meshAnomaly),
+			VerdictType: VerdictGrayFailure,
+			Confidence:  grayness,
+			Reason:      fmt.Sprintf("%s Suggestion: %s (grayness=%.4f)", finding, suggestion, grayness),
+			Indicators: []Indicator{
+				{Component: "infrastructure", Name: "anomaly_degree", Signal: fmt.Sprintf("%.4f", infraAnomaly)},
+				{Component: "mesh", Name: "anomaly_degree", Signal: fmt.Sprintf("%.4f", meshAnomaly)},
+			},
 		}
 	}
 
-	residual := meshAnomaly - infraAnomaly
-	grayness := math.Tanh(math.Max(residual, 0))
+	// ── Step 3: Rule-based fallback — no meaningful statistical deviation ─
+	//
+	// Z-score is below 2-sigma. Use status thresholds as a safety net for
+	// clear hard failures that haven't yet built up enough window history.
 
+	if worstInfraStatus == "healthy" && worstMeshStatus == "healthy" {
+		return Verdict{
+			TargetID:    deploymentKey,
+			Timestamp:   time.Now().UnixMilli(),
+			VerdictType: VerdictHealthy,
+			Confidence:  1.0,
+			Reason:      "All systems normal: infrastructure healthy, service mesh healthy.",
+		}
+	}
+
+	if worstInfraStatus == "unhealthy" && worstMeshStatus == "unhealthy" {
+		return Verdict{
+			TargetID:    deploymentKey,
+			Timestamp:   time.Now().UnixMilli(),
+			VerdictType: VerdictHardFailure,
+			Confidence:  1.0,
+			Reason:      "Full outage: both infrastructure and service mesh reporting unhealthy. Pod failures are directly causing service unavailability.",
+		}
+	}
+
+	// Mixed status but no statistical anomaly — within noise threshold
 	return Verdict{
-		TargetID:    ns,
+		TargetID:    deploymentKey,
 		Timestamp:   time.Now().UnixMilli(),
-		VerdictType: VerdictGrayFailure,
-		Confidence:  grayness,
-		Reason:      fmt.Sprintf("%s Suggestion: %s (grayness=%.4f)", finding, suggestion, grayness),
-		Indicators: []Indicator{
-			{Component: "infrastructure", Name: "anomaly_degree", Signal: fmt.Sprintf("%.4f", infraAnomaly)},
-			{Component: "mesh", Name: "anomaly_degree", Signal: fmt.Sprintf("%.4f", meshAnomaly)},
-		},
+		VerdictType: VerdictHealthy,
+		Confidence:  1.0,
+		Reason:      "All systems normal: discrepancy within noise threshold.",
 	}
 }
 

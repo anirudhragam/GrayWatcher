@@ -1,0 +1,17 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Schedule
+metadata:
+  name: checkout-pod-kill
+  namespace: online-boutique
+spec:
+  schedule: "@every 30s"
+  type: PodChaos
+  podChaos:
+    action: pod-kill
+    mode: one
+    selector:
+      namespaces:
+        - online-boutique
+      labelSelectors:
+        app: checkoutservice
+    duration: "5m"

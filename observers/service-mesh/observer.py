@@ -186,12 +186,12 @@ class ServiceMeshObserver:
         success_rate = metrics['success_rate']
         p99_latency = metrics['p99_latency_ms']
         
-        # UNHEALTHY: < 90% success OR latency > 5s
-        if success_rate < 0.90 or p99_latency > 5000:
+        # UNHEALTHY: < 90% success OR latency > 1s
+        if success_rate < 0.90 or p99_latency > 1000:
             return 'unhealthy'
-        
-        # DEGRADED: < 99% success OR latency > 1s
-        if success_rate < 0.99 or p99_latency > 1000:
+
+        # DEGRADED: < 99% success OR latency > 200ms
+        if success_rate < 0.99 or p99_latency > 200:
             return 'degraded'
         
         # HEALTHY

@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: verdict-server
-        image: vera5660/verdict-server:v1.0
+        image: vera5660/verdict-server:v1.2
         imagePullPolicy: Always
         ports:
         - containerPort: 80

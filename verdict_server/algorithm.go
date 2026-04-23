@@ -5,45 +5,60 @@ import (
 )
 
 type Analyzer interface {
-    Analyze(namespace string, infraObs []Observation, meshObs []Observation) Verdict
+	Analyze(deploymentKey string, infraObs []Observation, meshObs []Observation) Verdict
 }
 
-func extractNamespace(targetID string) string   {
-    return strings.SplitN(targetID, "/", 3)[1] 
+// podNameToDeployment strips the trailing ReplicaSet hash and pod hash from a pod name.
+// e.g. "frontend-7d7bc7d8d-xqk4r" → "frontend"
+//      "redis-cart-6d84489d98-xtx7z" → "redis-cart"
+func podNameToDeployment(podName string) string {
+	parts := strings.Split(podName, "-")
+	if len(parts) <= 2 {
+		return podName
+	}
+	return strings.Join(parts[:len(parts)-2], "-")
 }
 
-func groupByNamespace(observations []Observation) map[string][]Observation {
-    ns_obs := make(map[string][]Observation)
-    for _, observation := range observations {
-        namespace := extractNamespace(observation.TargetID)
-        ns_obs[namespace] = append(ns_obs[namespace], observation)
-    }
-    return ns_obs
+// groupInfraByDeployment groups infrastructure observations by "namespace/deployment".
+// The deployment name is derived from the pod name in metadata.
+func groupInfraByDeployment(observations []Observation) map[string][]Observation {
+	result := make(map[string][]Observation)
+	for _, obs := range observations {
+		if obs.ObserverType != "infrastructure" {
+			continue
+		}
+		podName, _ := obs.Metadata["pod_name"].(string)
+		namespace, _ := obs.Metadata["namespace"].(string)
+		deployment := podNameToDeployment(podName)
+		key := namespace + "/" + deployment
+		result[key] = append(result[key], obs)
+	}
+	return result
 }
 
-func splitByType(grouped map[string][]Observation) (infra, mesh map[string][]Observation){
-    infra_obs := make(map[string][]Observation)
-    mesh_obs := make(map[string][]Observation)
-
-    for ns, observations := range grouped {
-        for _, observation := range observations {
-            if observation.ObserverType == "infrastructure" {
-                infra_obs[ns] = append(infra_obs[ns], observation)
-            } else {
-                mesh_obs[ns] = append(mesh_obs[ns], observation)
-            }
-        }
-    }
-    return infra_obs, mesh_obs
+// groupMeshByDeployment groups mesh observations by "namespace/deployment".
+// The deployment name is read directly from metadata.
+func groupMeshByDeployment(observations []Observation) map[string][]Observation {
+	result := make(map[string][]Observation)
+	for _, obs := range observations {
+		if obs.ObserverType != "mesh" {
+			continue
+		}
+		namespace, _ := obs.Metadata["namespace"].(string)
+		deployment, _ := obs.Metadata["deployment"].(string)
+		key := namespace + "/" + deployment
+		result[key] = append(result[key], obs)
+	}
+	return result
 }
 
 func unionKeys(a, b map[string][]Observation) map[string]struct{} {
-    keys := make(map[string]struct{})
-    for k := range a {
-        keys[k] = struct{}{}
-    }
-    for k := range b {
-        keys[k] = struct{}{}
-    }
-    return keys
+	keys := make(map[string]struct{})
+	for k := range a {
+		keys[k] = struct{}{}
+	}
+	for k := range b {
+		keys[k] = struct{}{}
+	}
+	return keys
 }

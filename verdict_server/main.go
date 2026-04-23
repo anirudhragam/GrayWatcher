@@ -26,20 +26,20 @@ func main() {
 
 	analyzer := &ConsensusDiscrepancyAnalyzer{}
 	go func() {
-		// ticker := time.NewTicker(1 * time.Minute)
-		// 5 seconds ticker for local testing
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
 			recent := store.GetRecent()
-			grouped := groupByNamespace(recent)
-			infraByNS, meshByNS := splitByType(grouped)
-			for ns := range unionKeys(infraByNS, meshByNS) {
-				if ns == "" { continue }
-				v := analyzer.Analyze(ns, infraByNS[ns], meshByNS[ns])
-				verdictStore.Set(ns, v)
-				fmt.Printf("[VERDICT] namespace=%s type=%s grayness_score=%.4f reason=%q\n",
-					ns, v.VerdictType, v.Confidence, v.Reason)
+			infraByDep := groupInfraByDeployment(recent)
+			meshByDep := groupMeshByDeployment(recent)
+			for depKey := range unionKeys(infraByDep, meshByDep) {
+				if depKey == "" || depKey == "/" {
+					continue
+				}
+				v := analyzer.Analyze(depKey, infraByDep[depKey], meshByDep[depKey])
+				verdictStore.Set(depKey, v)
+				fmt.Printf("[VERDICT] deployment=%s type=%s confidence=%.4f reason=%q\n",
+					depKey, v.VerdictType, v.Confidence, v.Reason)
 			}
 		}
 	}()
