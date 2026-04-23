@@ -25,7 +25,7 @@ spec:
             value: "http://verdict-server.graywatcher.svc.cluster.local"
           
           - name: INTERVAL
-            value: "15"
+            value: "10"
             
         resources:
           limits:

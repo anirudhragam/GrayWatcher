@@ -88,13 +88,13 @@ class ServiceMeshObserver:
             deployment="{deployment}",
             classification="success",
             direction="inbound"
-        }}[1m]))
+        }}[30s]))
         /
         sum(rate(response_total{{
             namespace="{namespace}",
             deployment="{deployment}",
             direction="inbound"
-        }}[1m]))
+        }}[30s]))
         '''
         
         # Query 2: P99 Latency
@@ -104,7 +104,7 @@ class ServiceMeshObserver:
             namespace="{namespace}",
             deployment="{deployment}",
             direction="inbound"
-        }}[1m])) by (le)
+        }}[30s])) by (le)
         )
         '''
         
@@ -114,7 +114,7 @@ class ServiceMeshObserver:
             namespace="{namespace}",
             deployment="{deployment}",
             direction="inbound"
-        }}[1m]))
+        }}[30s]))
         '''
     
         # Execute queries
@@ -206,7 +206,7 @@ class ServiceMeshObserver:
             logger.error(f"Failed to POST observation for {obs.get('target_id')}: {e}")
 
 
-    def run(self, interval=15):
+    def run(self):
         """Main loop to collect and send observations at regular intervals"""
         while True:
             try:
@@ -218,7 +218,7 @@ class ServiceMeshObserver:
             except Exception as e:
                 logger.error(f"Error in observer loop: {e}")
 
-            time.sleep(interval)
+            time.sleep(self.interval)
 
            
 if __name__ == "__main__":

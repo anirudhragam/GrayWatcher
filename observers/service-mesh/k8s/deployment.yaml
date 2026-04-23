@@ -22,7 +22,7 @@ spec:
       serviceAccountName: mesh-observer-sa
       containers:
       - name: mesh-observer
-        image: vera5660/mesh-observer:v1.0
+        image: vera5660/mesh-observer:v1.1
         imagePullPolicy: Always
         env:
         - name: PROMETHEUS_URL
@@ -30,7 +30,7 @@ spec:
         - name: VERDICT_SERVER_URL
           value: "http://verdict-server.graywatcher.svc.cluster.local"
         - name: INTERVAL
-          value: "30"  
+          value: "10"
         resources:
           requests:
             cpu: 50m      
