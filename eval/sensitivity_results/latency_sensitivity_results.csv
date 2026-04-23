@@ -1,0 +1,11 @@
+latency_ms,detected,detection_latency_s,grayness,detected_service
+10,true,3,0.9796393157707883,online-boutique/recommendationservice
+20,true,3,0.9891636964168159,online-boutique/recommendationservice
+30,true,93,0.9899752708060194,online-boutique/shippingservice
+40,true,106,0.9985166377414134,online-boutique/recommendationservice
+50,true,43,0.9913356918806759,online-boutique/checkoutservice
+60,true,101,0.9832513137065721,online-boutique/currencyservice
+70,true,31,0.9874627624109438,online-boutique/emailservice
+80,true,46,0.9685330496473067,online-boutique/shippingservice
+90,true,3,0.9842471248342379,online-boutique/cartservice
+100,true,135,0.5730613055472309,online-boutique/paymentservice
