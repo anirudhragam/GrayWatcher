@@ -107,8 +107,9 @@ func (a *ConsensusDiscrepancyAnalyzer) Analyze(deploymentKey string, infraObs, m
 		}
 
 		// Only one source is anomalous → compute grayness
+		// math.Abs handles both directions: mesh-only and infra-only gray failures
 		residual := meshAnomaly - infraAnomaly
-		grayness := math.Tanh(math.Max(residual, 0))
+		grayness := math.Tanh(math.Abs(residual))
 
 		if grayness < minGrayness {
 			return Verdict{
